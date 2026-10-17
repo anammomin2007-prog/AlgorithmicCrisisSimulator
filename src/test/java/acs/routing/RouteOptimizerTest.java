@@ -187,4 +187,21 @@ class RouteOptimizerTest {
         assertEquals(List.of("RD_01", "RD_04", "RD_05"), route.getRoadIds());
         assertEquals(3.0, route.getTotalEstimatedTravelTimeMinutes(), 0.001);
     }
+
+    @Test
+    void shouldReturnEmptyWhenOnlyConnectingRoadIsClosed() {
+        CityGraph graph = createGraph("A", "B");
+
+        Road road = new Road(
+                "RD_01", "A", "B", 5.0, TrafficLevel.LOW
+        );
+        graph.addRoad(road);
+        road.setClosed(true);
+
+        Optional<Route> result =
+                new RouteOptimizer().findRoute(graph, "A", "B");
+
+        assertTrue(result.isEmpty());
+    }
+
 }
