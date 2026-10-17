@@ -1,11 +1,27 @@
 package acs.routing;
 
 import acs.graph.CityGraph;
+import acs.model.Location;
+import acs.model.Road;
+import acs.model.enums.TrafficLevel;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class RouteOptimizerTest {
+
+    private CityGraph createGraph(String... locationIds) {
+        CityGraph graph = new CityGraph();
+
+        for (String id : locationIds) {
+            graph.addLocation(new Location(id, "Location " + id));
+        }
+
+        return graph;
+    }
 
     @Test
     void shouldRejectNullGraph() {
@@ -19,9 +35,7 @@ class RouteOptimizerTest {
 
     @Test
     void shouldRejectUnknownStartingLocation() {
-        CityGraph graph = new CityGraph();
-        graph.addLocation("LOC_01");
-
+        CityGraph graph = createGraph("LOC_01");
         RouteOptimizer optimizer = new RouteOptimizer();
 
         assertThrows(
@@ -32,9 +46,7 @@ class RouteOptimizerTest {
 
     @Test
     void shouldRejectUnknownDestinationLocation() {
-        CityGraph graph = new CityGraph();
-        graph.addLocation("LOC_01");
-
+        CityGraph graph = createGraph("LOC_01");
         RouteOptimizer optimizer = new RouteOptimizer();
 
         assertThrows(
@@ -45,77 +57,45 @@ class RouteOptimizerTest {
 
     @Test
     void shouldFindFastestRoute() {
-        CityGraph graph = new CityGraph();
+        CityGraph graph = createGraph("LOC_01", "LOC_02", "LOC_03");
 
-        graph.addRoad(new acs.model.Road(
-                "RD_01", "LOC_01", "LOC_02",
-                3.0, acs.model.enums.TrafficLevel.LOW
-        ));
+        graph.addRoad(new Road("RD_01", "LOC_01", "LOC_02", 3.0, TrafficLevel.LOW));
+        graph.addRoad(new Road("RD_02", "LOC_02", "LOC_03", 4.0, TrafficLevel.LOW));
+        graph.addRoad(new Road("RD_03", "LOC_01", "LOC_03", 10.0, TrafficLevel.LOW));
 
-        graph.addRoad(new acs.model.Road(
-                "RD_02", "LOC_02", "LOC_03",
-                4.0, acs.model.enums.TrafficLevel.LOW
-        ));
+        Optional<Route> result =
+                new RouteOptimizer().findRoute(graph, "LOC_01", "LOC_03");
 
-        graph.addRoad(new acs.model.Road(
-                "RD_03", "LOC_01", "LOC_03",
-                10.0, acs.model.enums.TrafficLevel.LOW
-        ));
+        assertTrue(result.isPresent());
+        Route route = result.orElseThrow();
 
-        RouteOptimizer optimizer = new RouteOptimizer();
-
-        RouteResult result = optimizer.findRoute(
-                graph, "LOC_01", "LOC_03"
-        );
-
-        assertTrue(result.isReachable());
-        assertEquals(
-                java.util.List.of("LOC_01", "LOC_02", "LOC_03"),
-                result.getLocationIds()
-        );
-        assertEquals(7.0, result.getTotalTravelTimeMinutes());
-        assertEquals(2, result.getRoads().size());
+        assertEquals(List.of("LOC_01", "LOC_02", "LOC_03"), route.getLocationIds());
+        assertEquals(List.of("RD_01", "RD_02"), route.getRoadIds());
+        assertEquals(7.0, route.getTotalEstimatedTravelTimeMinutes(), 0.001);
     }
 
     @Test
     void shouldChooseFasterRoadWhenParallelRoadsExist() {
-        CityGraph graph = new CityGraph();
+        CityGraph graph = createGraph("LOC_01", "LOC_02");
 
-        graph.addRoad(new acs.model.Road(
-                "RD_01", "LOC_01", "LOC_02", 10.0,
-                acs.model.enums.TrafficLevel.LOW));
+        graph.addRoad(new Road("RD_01", "LOC_01", "LOC_02", 10.0, TrafficLevel.LOW));
+        graph.addRoad(new Road("RD_02", "LOC_01", "LOC_02", 3.0, TrafficLevel.LOW));
 
-        graph.addRoad(new acs.model.Road(
-                "RD_02", "LOC_01", "LOC_02", 3.0,
-                acs.model.enums.TrafficLevel.LOW));
+        Route route = new RouteOptimizer()
+                .findRoute(graph, "LOC_01", "LOC_02")
+                .orElseThrow();
 
-        RouteOptimizer optimizer = new RouteOptimizer();
-
-        RouteResult result = optimizer.findRoute(
-                graph, "LOC_01", "LOC_02");
-
-        assertTrue(result.isReachable());
-        assertEquals(3.0, result.getTotalTravelTimeMinutes());
-        assertEquals(
-                "RD_02",
-                result.getRoads().get(0).getRoadId());
+        assertEquals(3.0, route.getTotalEstimatedTravelTimeMinutes(), 0.001);
+        assertEquals(List.of("RD_02"), route.getRoadIds());
     }
 
     @Test
     void shouldChooseFasterRouteWhenTrafficChanges() {
-        CityGraph graph = new CityGraph();
+        CityGraph graph = createGraph("LOC_01", "LOC_02", "LOC_03");
 
-        acs.model.Road road1 = new acs.model.Road(
-                "RD_01", "LOC_01", "LOC_02", 4.0,
-                acs.model.enums.TrafficLevel.LOW);
-
-        acs.model.Road road2 = new acs.model.Road(
-                "RD_02", "LOC_02", "LOC_03", 4.0,
-                acs.model.enums.TrafficLevel.LOW);
-
-        acs.model.Road road3 = new acs.model.Road(
-                "RD_03", "LOC_01", "LOC_03", 10.0,
-                acs.model.enums.TrafficLevel.LOW);
+        Road road1 = new Road("RD_01", "LOC_01", "LOC_02", 4.0, TrafficLevel.LOW);
+        Road road2 = new Road("RD_02", "LOC_02", "LOC_03", 4.0, TrafficLevel.LOW);
+        Road road3 = new Road("RD_03", "LOC_01", "LOC_03", 10.0, TrafficLevel.LOW);
 
         graph.addRoad(road1);
         graph.addRoad(road2);
@@ -123,103 +103,88 @@ class RouteOptimizerTest {
 
         RouteOptimizer optimizer = new RouteOptimizer();
 
-        RouteResult firstResult = optimizer.findRoute(
-                graph, "LOC_01", "LOC_03");
+        Route firstRoute = optimizer.findRoute(graph, "LOC_01", "LOC_03")
+                .orElseThrow();
 
-        assertEquals(8.0, firstResult.getTotalTravelTimeMinutes());
-        assertEquals(
-                java.util.List.of("LOC_01", "LOC_02", "LOC_03"),
-                firstResult.getLocationIds());
+        assertEquals(8.0, firstRoute.getTotalEstimatedTravelTimeMinutes(), 0.001);
+        assertEquals(List.of("LOC_01", "LOC_02", "LOC_03"), firstRoute.getLocationIds());
 
-        road1.setTrafficLevel(acs.model.enums.TrafficLevel.HIGH);
-        road2.setTrafficLevel(acs.model.enums.TrafficLevel.HIGH);
+        road1.setTrafficLevel(TrafficLevel.HIGH);
+        road2.setTrafficLevel(TrafficLevel.HIGH);
 
-        RouteResult secondResult = optimizer.findRoute(
-                graph, "LOC_01", "LOC_03");
+        Route secondRoute = optimizer.findRoute(graph, "LOC_01", "LOC_03")
+                .orElseThrow();
 
-        assertEquals(10.0, secondResult.getTotalTravelTimeMinutes());
-        assertEquals(
-                java.util.List.of("LOC_01", "LOC_03"),
-                secondResult.getLocationIds());
+        assertEquals(10.0, secondRoute.getTotalEstimatedTravelTimeMinutes(), 0.001);
+        assertEquals(List.of("LOC_01", "LOC_03"), secondRoute.getLocationIds());
     }
 
     @Test
     void shouldAvoidClosedRoadAndFindAlternative() {
-        CityGraph graph = new CityGraph();
+        CityGraph graph = createGraph("LOC_01", "LOC_02", "LOC_03");
 
-        acs.model.Road road1 = new acs.model.Road(
-                "RD_01", "LOC_01", "LOC_02", 3.0,
-                acs.model.enums.TrafficLevel.LOW);
-
-        acs.model.Road road2 = new acs.model.Road(
-                "RD_02", "LOC_02", "LOC_03", 3.0,
-                acs.model.enums.TrafficLevel.LOW);
-
-        acs.model.Road road3 = new acs.model.Road(
-                "RD_03", "LOC_01", "LOC_03", 8.0,
-                acs.model.enums.TrafficLevel.LOW);
+        Road road1 = new Road("RD_01", "LOC_01", "LOC_02", 3.0, TrafficLevel.LOW);
+        Road road2 = new Road("RD_02", "LOC_02", "LOC_03", 3.0, TrafficLevel.LOW);
+        Road road3 = new Road("RD_03", "LOC_01", "LOC_03", 8.0, TrafficLevel.LOW);
 
         graph.addRoad(road1);
         graph.addRoad(road2);
         graph.addRoad(road3);
 
-        RouteOptimizer optimizer = new RouteOptimizer();
-
         road1.setClosed(true);
 
-        RouteResult result = optimizer.findRoute(
-                graph, "LOC_01", "LOC_03");
+        Route route = new RouteOptimizer()
+                .findRoute(graph, "LOC_01", "LOC_03")
+                .orElseThrow();
 
-        assertTrue(result.isReachable());
-        assertEquals(8.0, result.getTotalTravelTimeMinutes());
-        assertEquals(
-                java.util.List.of("LOC_01", "LOC_03"),
-                result.getLocationIds());
-        assertEquals(
-                "RD_03",
-                result.getRoads().get(0).getRoadId());
+        assertEquals(8.0, route.getTotalEstimatedTravelTimeMinutes(), 0.001);
+        assertEquals(List.of("LOC_01", "LOC_03"), route.getLocationIds());
+        assertEquals(List.of("RD_03"), route.getRoadIds());
     }
 
     @Test
-    void shouldReportUnreachableDestination() {
-        CityGraph graph = new CityGraph();
+    void shouldReturnEmptyWhenDestinationIsUnreachable() {
+        CityGraph graph = createGraph("LOC_01", "LOC_02", "LOC_03");
 
-        acs.model.Road road = new acs.model.Road(
-                "RD_01", "LOC_01", "LOC_02", 5.0,
-                acs.model.enums.TrafficLevel.LOW);
-
+        Road road = new Road("RD_01", "LOC_01", "LOC_02", 5.0, TrafficLevel.LOW);
         graph.addRoad(road);
-        graph.addLocation("LOC_03");
-
         road.setClosed(true);
 
-        RouteOptimizer optimizer = new RouteOptimizer();
+        Optional<Route> result =
+                new RouteOptimizer().findRoute(graph, "LOC_01", "LOC_03");
 
-        RouteResult result = optimizer.findRoute(
-                graph, "LOC_01", "LOC_03");
-
-        assertTrue(!result.isReachable());
-        assertTrue(result.getLocationIds().isEmpty());
-        assertTrue(result.getRoads().isEmpty());
-        assertTrue(Double.isInfinite(
-                result.getTotalTravelTimeMinutes()));
+        assertTrue(result.isEmpty());
     }
 
     @Test
     void shouldReturnZeroTimeWhenStartEqualsDestination() {
-        CityGraph graph = new CityGraph();
-        graph.addLocation("LOC_01");
+        CityGraph graph = createGraph("LOC_01");
 
-        RouteOptimizer optimizer = new RouteOptimizer();
+        Route route = new RouteOptimizer()
+                .findRoute(graph, "LOC_01", "LOC_01")
+                .orElseThrow();
 
-        RouteResult result = optimizer.findRoute(
-                graph, "LOC_01", "LOC_01");
+        assertEquals(List.of("LOC_01"), route.getLocationIds());
+        assertTrue(route.getRoadIds().isEmpty());
+        assertEquals(0.0, route.getTotalEstimatedTravelTimeMinutes(), 0.001);
+    }
 
-        assertTrue(result.isReachable());
-        assertEquals(
-                java.util.List.of("LOC_01"),
-                result.getLocationIds());
-        assertTrue(result.getRoads().isEmpty());
-        assertEquals(0.0, result.getTotalTravelTimeMinutes());
+    @Test
+    void shouldReorderQueueWhenAnExistingDistanceImproves() {
+        CityGraph graph = createGraph("A", "X", "C", "D");
+
+        graph.addRoad(new Road("RD_01", "A", "X", 1.0, TrafficLevel.LOW));
+        graph.addRoad(new Road("RD_02", "A", "D", 5.0, TrafficLevel.LOW));
+        graph.addRoad(new Road("RD_03", "A", "C", 8.0, TrafficLevel.LOW));
+        graph.addRoad(new Road("RD_04", "X", "C", 1.0, TrafficLevel.LOW));
+        graph.addRoad(new Road("RD_05", "C", "D", 1.0, TrafficLevel.LOW));
+
+        Route route = new RouteOptimizer()
+                .findRoute(graph, "A", "D")
+                .orElseThrow();
+
+        assertEquals(List.of("A", "X", "C", "D"), route.getLocationIds());
+        assertEquals(List.of("RD_01", "RD_04", "RD_05"), route.getRoadIds());
+        assertEquals(3.0, route.getTotalEstimatedTravelTimeMinutes(), 0.001);
     }
 }

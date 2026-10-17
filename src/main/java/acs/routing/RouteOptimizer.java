@@ -3,11 +3,20 @@ package acs.routing;
 import acs.graph.CityGraph;
 import acs.model.Road;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.PriorityQueue;
 
 public class RouteOptimizer {
 
-    public RouteResult findRoute(
+    private record QueueEntry(String locationId, double distance) {
+    }
+
+    public Optional<Route> findRoute(
             CityGraph graph,
             String startLocationId,
             String destinationLocationId) {
@@ -39,25 +48,34 @@ public class RouteOptimizer {
         }
 
         distances.put(startLocationId, 0.0);
-        PriorityQueue<String> locationsToVisit =
+
+        PriorityQueue<QueueEntry> locationsToVisit =
                 new PriorityQueue<>(
                         (first, second) ->
                                 Double.compare(
-                                        distances.get(first),
-                                        distances.get(second)
+                                        first.distance(),
+                                        second.distance()
                                 )
                 );
 
-        locationsToVisit.add(startLocationId);
+        locationsToVisit.add(new QueueEntry(startLocationId, 0.0));
 
         while (!locationsToVisit.isEmpty()) {
-            String currentLocation = locationsToVisit.poll();
+            QueueEntry entry = locationsToVisit.poll();
+            String currentLocation = entry.locationId();
+
+            if (Double.compare(
+                    entry.distance(),
+                    distances.get(currentLocation)
+            ) != 0) {
+                continue;
+            }
 
             if (currentLocation.equals(destinationLocationId)) {
                 break;
             }
 
-            for (Road road : graph.getRoadsFrom(currentLocation)) {
+            for (Road road : graph.getOutgoingRoads(currentLocation)) {
                 if (road.isClosed()) {
                     continue;
                 }
@@ -78,50 +96,43 @@ public class RouteOptimizer {
                     distances.put(neighbor, newDistance);
                     previous.put(neighbor, currentLocation);
                     previousRoad.put(neighbor, road);
-                    locationsToVisit.add(neighbor);
-                }
 
+                    locationsToVisit.add(
+                            new QueueEntry(neighbor, newDistance)
+                    );
+                }
             }
         }
 
-        if (distances.get(destinationLocationId)
-                == Double.POSITIVE_INFINITY) {
-            return new RouteResult(
-                    List.of(),
-                    List.of(),
-                    Double.POSITIVE_INFINITY,
-                    false
-            );
+        if (Double.isInfinite(distances.get(destinationLocationId))) {
+            return Optional.empty();
         }
 
-        List<String> routeLocations = new java.util.ArrayList<>();
+        List<String> routeLocations = new ArrayList<>();
+        List<String> routeRoadIds = new ArrayList<>();
+
         String current = destinationLocationId;
 
         while (current != null) {
             routeLocations.add(current);
+
+            Road road = previousRoad.get(current);
+            if (road != null) {
+                routeRoadIds.add(road.getRoadId());
+            }
+
             current = previous.get(current);
         }
 
-        java.util.Collections.reverse(routeLocations);
+        Collections.reverse(routeLocations);
+        Collections.reverse(routeRoadIds);
 
-        List<Road> routeRoads = new ArrayList<>();
-        double totalTravelTime = 0.0;
-
-        for (int i = 1; i < routeLocations.size(); i++) {
-            String locationId = routeLocations.get(i);
-
-            Road road = previousRoad.get(locationId);
-
-            routeRoads.add(road);
-            totalTravelTime += road.getEffectiveTravelTimeMinutes();
-        }
-
-
-        return new RouteResult(
+        Route route = new Route(
                 routeLocations,
-                routeRoads,
-                totalTravelTime,
-                true
+                routeRoadIds,
+                distances.get(destinationLocationId)
         );
+
+        return Optional.of(route);
     }
 }

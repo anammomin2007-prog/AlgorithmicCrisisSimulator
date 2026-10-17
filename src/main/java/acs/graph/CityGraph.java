@@ -1,6 +1,6 @@
-
 package acs.graph;
 
+import acs.model.Location;
 import acs.model.Road;
 
 import java.util.ArrayList;
@@ -11,25 +11,34 @@ import java.util.Set;
 
 public class CityGraph {
 
+    private final Map<String, Location> locationsById = new HashMap<>();
     private final Map<String, List<Road>> adjacencyList = new HashMap<>();
     private final Map<String, Road> roadsById = new HashMap<>();
 
-
-    public void addLocation(String locationId) {
-        if (locationId == null || locationId.isBlank()) {
+    public void addLocation(Location location) {
+        if (location == null) {
             throw new IllegalArgumentException(
-                    "Location ID cannot be empty."
+                    "Location cannot be null."
             );
         }
 
-        adjacencyList.putIfAbsent(locationId, new ArrayList<>());
+        String locationId = location.getLocationId();
+
+        if (locationsById.containsKey(locationId)) {
+            throw new IllegalArgumentException(
+                    "Duplicate location ID: " + locationId
+            );
+        }
+
+        locationsById.put(locationId, location);
+        adjacencyList.put(locationId, new ArrayList<>());
     }
-
-
 
     public void addRoad(Road road) {
         if (road == null) {
-            throw new IllegalArgumentException("Road cannot be null.");
+            throw new IllegalArgumentException(
+                    "Road cannot be null."
+            );
         }
 
         String roadId = road.getRoadId();
@@ -43,8 +52,8 @@ public class CityGraph {
         String from = road.getFromLocationId();
         String to = road.getToLocationId();
 
-        addLocation(from);
-        addLocation(to);
+        ensureLocationExists(from);
+        ensureLocationExists(to);
 
         adjacencyList.get(from).add(road);
         adjacencyList.get(to).add(road);
@@ -52,7 +61,19 @@ public class CityGraph {
         roadsById.put(roadId, road);
     }
 
-    public List<Road> getRoadsFrom(String locationId) {
+    private void ensureLocationExists(String locationId) {
+        if (!locationsById.containsKey(locationId)) {
+            throw new IllegalArgumentException(
+                    "Unknown location ID: " + locationId
+            );
+        }
+    }
+
+    public Location getLocation(String locationId) {
+        return locationsById.get(locationId);
+    }
+
+    public List<Road> getOutgoingRoads(String locationId) {
         return List.copyOf(
                 adjacencyList.getOrDefault(locationId, List.of())
         );
@@ -60,10 +81,10 @@ public class CityGraph {
 
     public boolean containsLocation(String locationId) {
         return locationId != null
-                && adjacencyList.containsKey(locationId);
+                && locationsById.containsKey(locationId);
     }
 
     public Set<String> getLocationIds() {
-        return Set.copyOf(adjacencyList.keySet());
+        return Set.copyOf(locationsById.keySet());
     }
 }

@@ -1,77 +1,92 @@
 
 package acs.graph;
 
+import acs.model.Location;
 import acs.model.Road;
 import acs.model.enums.TrafficLevel;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class CityGraphTest {
 
+    private Location location(String id) {
+        return new Location(id, "Location " + id);
+    }
+
+    private CityGraph createGraphWithTwoLocations() {
+        CityGraph graph = new CityGraph();
+        graph.addLocation(location("A"));
+        graph.addLocation(location("B"));
+        return graph;
+    }
+
     @Test
-    void shouldStoreTwoWayRoadAtBothLocations() {
+    void shouldAddAndRetrieveLocation() {
+        CityGraph graph = new CityGraph();
+        Location a = location("A");
+
+        graph.addLocation(a);
+
+        assertEquals(a, graph.getLocation("A"));
+        assertTrue(graph.containsLocation("A"));
+        assertFalse(graph.containsLocation("UNKNOWN"));
+    }
+
+    @Test
+    void shouldRejectNullLocation() {
         CityGraph graph = new CityGraph();
 
-        Road road = new Road(
-                "RD_01",
-                "LOC_01",
-                "LOC_02",
-                10.0,
-                TrafficLevel.HIGH
-        );
-
-        graph.addRoad(road);
-
-        assertEquals(
-                1,
-                graph.getRoadsFrom("LOC_01").size()
-        );
-
-        assertEquals(
-                1,
-                graph.getRoadsFrom("LOC_02").size()
-        );
-
-        assertEquals(
-                "RD_01",
-                graph.getRoadsFrom("LOC_01").get(0).getRoadId()
-        );
-
-        assertEquals(
-                "RD_01",
-                graph.getRoadsFrom("LOC_02").get(0).getRoadId()
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> graph.addLocation(null)
         );
     }
 
     @Test
-    void shouldRejectDuplicateRoadIds() {
+    void shouldRejectDuplicateLocationId() {
         CityGraph graph = new CityGraph();
-
-        Road firstRoad = new Road(
-                "RD_01", "LOC_01", "LOC_02",
-                10.0, TrafficLevel.LOW
-        );
-
-        Road duplicateRoad = new Road(
-                "RD_01", "LOC_02", "LOC_03",
-                5.0, TrafficLevel.MEDIUM
-        );
-
-        graph.addRoad(firstRoad);
+        graph.addLocation(location("A"));
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> graph.addRoad(duplicateRoad)
+                () -> graph.addLocation(location("A"))
+        );
+    }
+
+    @Test
+    void shouldAddRoadToBothLocations() {
+        CityGraph graph = createGraphWithTwoLocations();
+        Road road = new Road(
+                "RD_01", "A", "B", 5.0, TrafficLevel.LOW
+        );
+
+        graph.addRoad(road);
+
+        assertEquals(List.of(road), graph.getOutgoingRoads("A"));
+        assertEquals(List.of(road), graph.getOutgoingRoads("B"));
+    }
+
+    @Test
+    void shouldRejectDuplicateRoadId() {
+        CityGraph graph = createGraphWithTwoLocations();
+        graph.addRoad(new Road(
+                "RD_01", "A", "B", 5.0, TrafficLevel.LOW
+        ));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> graph.addRoad(new Road(
+                        "RD_01", "A", "B", 7.0, TrafficLevel.MEDIUM
+                ))
         );
     }
 
     @Test
     void shouldRejectNullRoad() {
-        CityGraph graph = new CityGraph();
+        CityGraph graph = createGraphWithTwoLocations();
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -80,65 +95,81 @@ class CityGraphTest {
     }
 
     @Test
-    void shouldRejectBlankLocationId() {
+    void shouldRejectRoadWithUnknownLocation() {
         CityGraph graph = new CityGraph();
+        graph.addLocation(location("A"));
+
+        Road road = new Road(
+                "RD_01", "A", "B", 5.0, TrafficLevel.LOW
+        );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> graph.addLocation("   ")
+                () -> graph.addRoad(road)
         );
     }
 
     @Test
-    void shouldPreserveExistingRoadsWhenLocationIsAddedAgain() {
+    void shouldReturnEmptyRoadListForUnknownLocation() {
         CityGraph graph = new CityGraph();
 
-        Road road = new Road(
-                "RD_01",
-                "LOC_01",
-                "LOC_02",
-                10.0,
-                TrafficLevel.LOW
-        );
-
-        graph.addRoad(road);
-        graph.addLocation("LOC_01");
-
-        assertEquals(1, graph.getRoadsFrom("LOC_01").size());
-        assertTrue(graph.getRoadsFrom("LOC_01").contains(road));
+        assertTrue(graph.getOutgoingRoads("UNKNOWN").isEmpty());
     }
 
     @Test
-    void shouldPreventExternalModificationOfRoadList() {
-        CityGraph graph = new CityGraph();
-
+    void shouldReturnImmutableOutgoingRoadList() {
+        CityGraph graph = createGraphWithTwoLocations();
         Road road = new Road(
-                "RD_01",
-                "LOC_01",
-                "LOC_02",
-                10.0,
-                TrafficLevel.LOW
+                "RD_01", "A", "B", 5.0, TrafficLevel.LOW
         );
-
         graph.addRoad(road);
+
+        List<Road> roads = graph.getOutgoingRoads("A");
 
         assertThrows(
                 UnsupportedOperationException.class,
-                () -> graph.getRoadsFrom("LOC_01").clear()
+                () -> roads.add(new Road(
+                        "RD_02", "A", "B", 3.0, TrafficLevel.LOW
+                ))
         );
-
-        assertEquals(1, graph.getRoadsFrom("LOC_01").size());
     }
 
     @Test
-    void shouldIdentifyExistingAndUnknownLocations() {
+    void shouldReturnAllLocationIds() {
+        CityGraph graph = createGraphWithTwoLocations();
+
+        assertEquals(
+                java.util.Set.of("A", "B"),
+                graph.getLocationIds()
+        );
+    }
+
+    @Test
+    void shouldReturnImmutableLocationIds() {
+        CityGraph graph = createGraphWithTwoLocations();
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> graph.getLocationIds().add("C")
+        );
+    }
+
+    @Test
+    void shouldNotModifyGraphWhenRoadHasUnknownLocation() {
         CityGraph graph = new CityGraph();
+        graph.addLocation(location("A"));
 
-        graph.addLocation("LOC_01");
+        Road road = new Road(
+                "RD_01", "A", "B", 5.0, TrafficLevel.LOW
+        );
 
-        assertTrue(graph.containsLocation("LOC_01"));
-        assertFalse(graph.containsLocation("LOC_99"));
-        assertFalse(graph.containsLocation(null));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> graph.addRoad(road)
+        );
+
+        assertTrue(graph.getOutgoingRoads("A").isEmpty());
+        assertFalse(graph.getLocationIds().contains("B"));
     }
 
 }
