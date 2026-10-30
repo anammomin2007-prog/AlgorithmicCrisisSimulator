@@ -1,23 +1,26 @@
 package acs.ui;
 
+import acs.config.NexoraCity;
+import acs.graph.CityGraph;
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 public class CrisisSimulatorApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        Label message = new Label(
-                "Algorithmic Crisis Simulator - Nexora"
+        CityGraph cityGraph = NexoraCity.createCity();
+
+        DashboardView dashboard = new DashboardView(cityGraph);
+
+        Scene scene = new Scene(
+                dashboard.createView(),
+                1200,
+                800
         );
 
-        StackPane root = new StackPane(message);
-        Scene scene = new Scene(root, 800, 500);
-
-        stage.setTitle("Algorithmic Crisis Simulator");
+        stage.setTitle("Algorithmic Crisis Simulator - Nexora");
         stage.setScene(scene);
         stage.show();
     }

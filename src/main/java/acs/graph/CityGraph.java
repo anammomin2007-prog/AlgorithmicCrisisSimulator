@@ -87,4 +87,7 @@ public class CityGraph {
     public Set<String> getLocationIds() {
         return Set.copyOf(locationsById.keySet());
     }
+    public List<Road> getRoads() {
+        return List.copyOf(roadsById.values());
+    }
 }
