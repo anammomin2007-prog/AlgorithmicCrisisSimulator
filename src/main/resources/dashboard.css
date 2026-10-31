@@ -1,0 +1,40 @@
+
+    /* Dark scrollbar track */
+.scroll-bar:vertical,
+.scroll-bar:horizontal {
+    -fx-background-color: #0a1724;
+    -fx-background-radius: 4px;
+}
+
+/* Dark scrollbar thumb */
+.scroll-bar:vertical .thumb,
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: #263b50;
+    -fx-background-radius: 4px;
+    -fx-background-insets: 2px;
+}
+
+/* Slightly lighter when hovered */
+.scroll-bar:vertical .thumb:hover,
+.scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: #38536c;
+}
+
+/* Scrollbar buttons */
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: #0a1724;
+    -fx-background-radius: 0;
+}
+
+/* Hide scrollbar arrow symbols */
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: #0a1724;
+    -fx-shape: "";
+}
+
+/* Dark scrollbar corner */
+.scroll-pane .corner {
+    -fx-background-color: #0a1724;
+}

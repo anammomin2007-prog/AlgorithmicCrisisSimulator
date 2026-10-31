@@ -134,9 +134,18 @@ public class Emergency {
         status = EmergencyStatus.ON_SCENE;
     }
 
-    public void resolve(double time) {
+    public void beginTransport() {
         requireStatus(EmergencyStatus.ON_SCENE,
-                "Emergency must arrive before it can be resolved.");
+                "Only an emergency on scene can begin patient transport.");
+        status = EmergencyStatus.TRANSPORTING;
+    }
+
+    public void resolve(double time) {
+        if (status != EmergencyStatus.ON_SCENE
+                && status != EmergencyStatus.TRANSPORTING) {
+            throw new IllegalStateException(
+                    "Emergency must be on scene or in transport before it can be resolved.");
+        }
         validateTime(time);
         if (time < arrivalTime) {
             throw new IllegalArgumentException(

@@ -6,6 +6,7 @@ public enum EmergencyStatus {
     ASSIGNED,
     RESPONDING,
     ON_SCENE,
+    TRANSPORTING,
     RESOLVED,
     CANCELLED
 }

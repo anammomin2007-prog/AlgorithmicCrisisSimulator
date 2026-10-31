@@ -94,6 +94,14 @@ public class EmergencyVehicle {
         status = VehicleStatus.ON_SCENE;
     }
 
+    /** Marks a vehicle as travelling again after on-scene service. */
+    public void beginTravel() {
+        if (status == VehicleStatus.AVAILABLE) {
+            throw new IllegalStateException("An available vehicle cannot begin an assigned journey.");
+        }
+        status = VehicleStatus.RESPONDING;
+    }
+
     public void release() {
         if (status == VehicleStatus.AVAILABLE) {
             throw new IllegalStateException(
